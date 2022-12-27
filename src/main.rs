@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use clap::Parser;
 use ethers::{etherscan::Client, types::Chain};
@@ -5,21 +7,24 @@ use ethers::{etherscan::Client, types::Chain};
 #[derive(Parser)]
 struct Cli {
     contract_address: String,
-		network: String
+		chain: String
 }
+// 0xd2ade556
+// 0x98AA442ceFCAF0A7277D10889d07d04E90B37eA5
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		let args = Cli::parse();
 		println!("contract address: {:?}", args.contract_address);
-		println!("network: {:?}", args.network);
+		println!("chain: {:?}", args.chain);
 		let api_key = "K14P3TW12QCI2VDR3YIDY7XA9Y5XP2D232";
-		let client = Client::new(Chain::Mainnet, api_key).unwrap();
+		let client = Client::new(Chain::from_str(&args.chain).unwrap(), api_key).unwrap();
+
+		println!("Fetching on abi for contract on {:?} on chain {:?}", args.contract_address, args.chain);
     let abi = client
         .contract_abi(args.contract_address.parse().unwrap()).await?;
 
-		let events = abi.events;
-		println!("hi: {:?}", events);
+		println!("hi: {:?}", abi.errors);
 
     Ok(())
 }
