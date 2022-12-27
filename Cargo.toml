@@ -8,5 +8,8 @@ edition = "2021"
 [dependencies]
 
 # cli
-clap = { version = "4.0", features = ["derive", "env", "wrap_help"] }
 anyhow = "1.0"
+clap = { version = "4.0.32", features = ["derive"] }
+ethers = "1.0.0"
+tokio = { version = "1.23.0", features = ["full"] }
+
