@@ -9,6 +9,7 @@ struct Cli {
     contract_address: String,
 		chain: String,
 		error: String,
+		etherscan_key: String,
 }
 
 // 0xd2ade556
@@ -17,11 +18,10 @@ struct Cli {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		let args = Cli::parse();
-		println!("contract address: {}, chain: {}, error: {}", args.contract_address, args.chain, args.error);
-		let api_key = "K14P3TW12QCI2VDR3YIDY7XA9Y5XP2D232";
+		println!("contract address: {}, chain: {}, error: {}, key: {}", args.contract_address, args.chain, args.error, args.etherscan_key);
 		let address: Address = args.contract_address.parse().expect("Provided contract address invalid");
 		let chain = Chain::from_str(&args.chain).expect("Provided chain name invalid");
-		let client = Client::new(chain, api_key).unwrap();
+		let client = Client::new(chain, args.etherscan_key).unwrap();
 
 		println!("Fetching on abi for contract on {} on chain {}", args.contract_address, args.chain);
     let abi = client
