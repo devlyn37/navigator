@@ -2,11 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use clap::Parser;
-use ethers::{
-    abi::{ethabi::AbiError, Token},
-    prelude::*,
-    utils::hex,
-};
+use ethers::{abi::Token, prelude::*, utils::hex};
 /// Search for a pattern in a file and display th elines that contain it.
 #[derive(Parser)]
 struct Cli {
@@ -47,23 +43,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_error(contract: ethers::abi::Contract, hex: &str) -> Result<(String, Vec<Token>), String> {
-    let errors: Vec<AbiError> = contract
+fn parse_error(contract: ethers::abi::Contract, hex: &str) -> Option<(String, Vec<Token>)> {
+    let found = contract
         .errors
         .into_values()
         .filter_map(|x| x.into_iter().nth(0))
-        .collect();
+        .find(|error| {
+            let encoded_signature = hex::encode(error.signature().as_bytes());
+            return encoded_signature.contains(hex.trim_start_matches("0x"));
+        })?;
 
-    for error in errors {
-        let encoded_signature = hex::encode(error.signature().as_bytes());
-        if encoded_signature.contains(hex.trim_start_matches("0x")) {
-            let decoded = error.decode(hex.as_bytes());
-            match decoded {
-                Ok(result) => return Ok((error.name.to_owned(), result)),
-                Err(_) => return Err("Could not decode data".to_string()),
-            }
-        }
-    }
-
-    return Err("No errors within the contract mapped to the data provided".to_string());
+    let decoded = found.decode(hex.as_bytes()).ok()?;
+    Some((found.name.to_owned(), decoded))
 }
