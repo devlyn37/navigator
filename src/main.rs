@@ -2,7 +2,11 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use clap::Parser;
-use ethers::{abi::Token, prelude::*, utils::{hex, keccak256}};
+use ethers::{
+    abi::Token,
+    prelude::*,
+    utils::{hex, keccak256},
+};
 /// Search for a pattern in a file and display th elines that contain it.
 #[derive(Parser)]
 struct Cli {
@@ -12,11 +16,10 @@ struct Cli {
     etherscan_key: String,
 }
 
-
-// contract address: 
+// contract address:
 // 0x1d9317911cf1003b42a965574c29f18a87a2858c
 // data:
-// 0x0209c6b7000000000000000000000000e3ce7d40801067f3057eb5b7680ddffb9c2019c80000000000000000000000000000000000000000000000000000000000000001
+// 0x0209c6b7000000000000000000000000292f9d08efcf1a3a988959190d44f48a53577f100000000000000000000000000000000000000000000000000000000000000001
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,7 +35,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let chain = Chain::from_str(&args.chain).expect("Provided chain name invalid");
     let client = Client::new(chain, args.etherscan_key).unwrap();
 
-		println!("Here's the hash of the error message {}", hex::encode(keccak256("SeasonPassNFT: Not enough ETH sent")));
+    println!(
+        "Here's the hash of the error message {}",
+        hex::encode(keccak256("SeasonPassNFT: Not enough ETH sent"))
+    );
 
     println!(
         "Fetching on abi for contract on {} on chain {}",
@@ -44,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Could not fetch the abi for the provided contract address");
     // let (error_name, args) =
     //     parse_error(abi, &args.error).expect("Could not decode error with provided information");
-		let (function_name, args) =
+    let (function_name, args) =
         parse_function(abi, &args.error).expect("Could not decode error with provided information");
 
     println!("Error name: {}", function_name);
@@ -52,8 +58,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-
 
 fn parse_error(contract: ethers::abi::Contract, hex: &str) -> Option<(String, Vec<Token>)> {
     let found = contract
@@ -70,18 +74,20 @@ fn parse_error(contract: ethers::abi::Contract, hex: &str) -> Option<(String, Ve
 }
 
 fn parse_function(contract: ethers::abi::Contract, hex: &str) -> Option<(String, Vec<Token>)> {
-	    let found = contract
+    let found = contract
         .functions
         .into_values()
         .filter_map(|x| x.into_iter().nth(0))
         .find(|function| {
-						println!("{:?}", function.signature());
-						let function_selector = format!("{}{}", "0x", hex::encode(function.short_signature()));
-						println!("{:?}", function_selector);
+            let function_selector = format!("{}{}", "0x", hex::encode(function.short_signature()));
             return hex.contains(function_selector.as_str());
         })?;
 
-
-				let decoded = found.decode_input(hex.as_bytes()).ok()?;
-    		Some((found.name.to_owned(), decoded))
+    let trimmed_hex = hex
+        .trim_start_matches("0x")
+        .trim_start_matches(hex::encode(found.short_signature()).as_str());
+    println!("{}", trimmed_hex);
+    let hex_bytes = hex::decode(trimmed_hex).ok()?;
+    let decoded = found.decode_input(&hex_bytes).ok()?;
+    Some((found.name.to_owned(), decoded))
 }
