@@ -69,11 +69,13 @@ fn cli() -> Command {
                 .arg(arg!(<CONTRACT> "contract address for the target"))
                 .arg(arg!(<ETHERSCAN_KEY> "api key for etherscan"))
                 .arg(arg!(<DATA> "the data to decode"))
+                // think of a better interface here
                 .arg(
-                    arg!(--kind <DATA_TYPE>)
+                    arg!(--kind <KIND>)
                         .value_parser(["function", "error"])
+                        .num_args(1)
                         .required(true)
-                        .require_equals(true)
+                        .require_equals(true),
                 ),
         )
 }
@@ -107,16 +109,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .contract_abi(contract_address)
                 .await
                 .expect("Could not fetch the abi for the provided contract address");
-            let data_type = matches.get_one::<String>("DATA_TYPE").expect("required");
 
-            match data_type.as_str() {
+            // TODO clean this bit up
+            match sub_matches
+                .get_one::<String>("kind")
+                .map(|s| s.as_str())
+                .expect("error parsing kind")
+            {
                 "error" => {
-                    let (name, args) = parse_error(abi, data).expect("ahhl");
+                    let (name, args) = parse_error(abi, data).expect("error parsing error data");
                     println!("Error name: {}", name);
                     println!("Args: {:?}", args);
                 }
                 "function" => {
-                    let (name, args) = parse_function(abi, data).expect("ahhl");
+                    let (name, args) =
+                        parse_function(abi, data).expect("error parsing function data");
                     println!("Error name: {}", name);
                     println!("Args: {:?}", args);
                 }
@@ -125,6 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Ok(())
         }
+        // TODO not sure I need this
         Some((ext, sub_matches)) => {
             let args = sub_matches
                 .get_many::<OsString>("")
