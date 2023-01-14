@@ -12,7 +12,7 @@ use ethers::{
 struct Cli {
     contract_address: String,
     chain: String,
-    error: String,
+    data: String,
     etherscan_key: String,
 }
 
@@ -25,9 +25,11 @@ struct Cli {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     println!(
-        "contract address: {}, chain: {}, error: {}, key: {}",
-        args.contract_address, args.chain, args.error, args.etherscan_key
+        "contract address: {}, chain: {}, data: {}, key: {}",
+        args.contract_address, args.chain, args.data, args.etherscan_key
     );
+
+    let data = hex::decode(args.data.trim_start_matches("0x")).expect("data provided is not hex");
     let address: Address = args
         .contract_address
         .parse()
@@ -51,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let (error_name, args) =
     //     parse_error(abi, &args.error).expect("Could not decode error with provided information");
     let (function_name, args) =
-        parse_function(abi, &args.error).expect("Could not decode error with provided information");
+        parse_function(abi, data).expect("Could not decode error with provided information");
 
     println!("Error name: {}", function_name);
     println!("Args: {:?}", args);
@@ -59,35 +61,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_error(contract: ethers::abi::Contract, hex: &str) -> Option<(String, Vec<Token>)> {
-    let found = contract
-        .errors
-        .into_values()
-        .filter_map(|x| x.into_iter().nth(0))
-        .find(|error| {
-            let encoded_signature = hex::encode(error.signature());
-            return encoded_signature.contains(hex.trim_start_matches("0x"));
-        })?;
+// fn parse_error(contract: ethers::abi::Contract, data: &Vec<u8>) -> Option<(String, Vec<Token>)> {
+//     let found = contract
+//         .errors
+//         .into_values()
+//         .filter_map(|x| x.into_iter().nth(0))
+//         .find(|error| {
+//             let encoded_signature = hex::encode(error.signature());
+//             return encoded_signature.contains(hex.trim_start_matches("0x"));
+//         })?;
 
-    let decoded = found.decode(hex.as_bytes()).ok()?;
-    Some((found.name.to_owned(), decoded))
-}
+//     let decoded = found.decode(hex.as_bytes()).ok()?;
+//     Some((found.name.to_owned(), decoded))
+// }
 
-fn parse_function(contract: ethers::abi::Contract, hex: &str) -> Option<(String, Vec<Token>)> {
+fn parse_function(contract: ethers::abi::Contract, data: Vec<u8>) -> Option<(String, Vec<Token>)> {
     let found = contract
         .functions
         .into_values()
         .filter_map(|x| x.into_iter().nth(0))
         .find(|function| {
-            let function_selector = format!("{}{}", "0x", hex::encode(function.short_signature()));
-            return hex.contains(function_selector.as_str());
+						let signature = &data[0..4];
+            return signature == function.short_signature();
         })?;
 
-    let trimmed_hex = hex
-        .trim_start_matches("0x")
-        .trim_start_matches(hex::encode(found.short_signature()).as_str());
-    println!("{}", trimmed_hex);
-    let hex_bytes = hex::decode(trimmed_hex).ok()?;
-    let decoded = found.decode_input(&hex_bytes).ok()?;
+		let params = &data[4..];
+    let decoded = found.decode_input(params).ok()?;
     Some((found.name.to_owned(), decoded))
 }
