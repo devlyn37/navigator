@@ -1,12 +1,7 @@
-use std::{ffi::OsString, str::FromStr};
-
 use anyhow::Result;
 use clap::{arg, ArgMatches, Command, Parser};
-use ethers::{
-    abi::Token,
-    prelude::*,
-    utils::{hex},
-};
+use ethers::{abi::Token, prelude::*, utils::hex};
+use std::{ffi::OsString, str::FromStr};
 /// Search for a pattern in a file and display th elines that contain it.
 #[derive(Parser)]
 struct Cli {
@@ -61,33 +56,24 @@ fn parse_function(contract: ethers::abi::Contract, data: Vec<u8>) -> Option<(Str
 }
 
 fn cli() -> Command {
-    Command::new("git")
-        .about("A fictional versioning CLI")
+    Command::new("navigator")
+        .about("Some tools")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .allow_external_subcommands(true)
         .subcommand(
             Command::new("decode")
                 .about("decodes hex ethereum call data")
-                .subcommand_required(true)
                 .arg_required_else_help(true)
-                .subcommand(
-                    Command::new("error")
-                        .about("decodes solidity custom error data")
-                        .arg_required_else_help(true)
-                        .arg(arg!(<CHAIN> "The remote to target"))
-                        .arg(arg!(<CONTRACT> "contract address for the target"))
-                        .arg(arg!(<ETHERSCAN_KEY> "api key for etherscan"))
-                        .arg(arg!(<DATA> "the data to decode")),
-                )
-                .subcommand(
-                    Command::new("function")
-                        .about("decodes solidity function call data")
-                        .arg_required_else_help(true)
-                        .arg(arg!(<CHAIN> "The remote to target"))
-                        .arg(arg!(<CONTRACT> "contract address for the target"))
-                        .arg(arg!(<ETHERSCAN_KEY> "api key for etherscan"))
-                        .arg(arg!(<DATA> "the data to decode")),
+                .arg(arg!(<CHAIN> "The remote to target"))
+                .arg(arg!(<CONTRACT> "contract address for the target"))
+                .arg(arg!(<ETHERSCAN_KEY> "api key for etherscan"))
+                .arg(arg!(<DATA> "the data to decode"))
+                .arg(
+                    arg!(--kind <DATA_TYPE>)
+                        .value_parser(["function", "error"])
+                        .required(true)
+                        .require_equals(true)
                 ),
         )
 }
@@ -115,32 +101,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("decode", sub_matches)) => {
-            let decode_command = sub_matches.subcommand().unwrap_or(("decode", sub_matches));
-            match decode_command {
-                ("error", sub_matches) => {
-                    let (chain, contract_address, key, data) =
-                        validate_and_format_input(sub_matches);
-                    let client = Client::new(chain, key).unwrap();
-                    let abi = client
-                        .contract_abi(contract_address)
-                        .await
-                        .expect("Could not fetch the abi for the provided contract address");
+            let (chain, contract_address, key, data) = validate_and_format_input(sub_matches);
+            let client = Client::new(chain, key).unwrap();
+            let abi = client
+                .contract_abi(contract_address)
+                .await
+                .expect("Could not fetch the abi for the provided contract address");
+            let data_type = matches.get_one::<String>("DATA_TYPE").expect("required");
+
+            match data_type.as_str() {
+                "error" => {
                     let (name, args) = parse_error(abi, data).expect("ahhl");
                     println!("Error name: {}", name);
                     println!("Args: {:?}", args);
-                    return Ok(());
                 }
-                (ext, sub_matches) => {
-                    let args = sub_matches
-                        .get_many::<OsString>("")
-                        .into_iter()
-                        .flatten()
-                        .collect::<Vec<_>>();
-                    println!("Calling out to {:?} with {:?}", ext, args);
-                    return Ok(());
+                "function" => {
+                    let (name, args) = parse_function(abi, data).expect("ahhl");
+                    println!("Error name: {}", name);
+                    println!("Args: {:?}", args);
                 }
-                _ => unreachable!(), // If all subcommands are defined above, anything else is unreachabe!()
-            };
+                _ => unreachable!(),
+            }
+
+            Ok(())
         }
         Some((ext, sub_matches)) => {
             let args = sub_matches
