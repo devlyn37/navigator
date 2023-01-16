@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{arg, ArgMatches, Command, Parser};
 use ethers::{abi::Token, prelude::*, utils::hex};
-use std::{ffi::OsString, str::FromStr};
+use std::str::FromStr;
 /// Search for a pattern in a file and display th elines that contain it.
 #[derive(Parser)]
 struct Cli {
@@ -60,7 +60,6 @@ fn cli() -> Command {
         .about("Some tools")
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .allow_external_subcommands(true)
         .subcommand(
             Command::new("decode")
                 .about("decodes hex ethereum call data")
@@ -69,7 +68,6 @@ fn cli() -> Command {
                 .arg(arg!(<CONTRACT> "contract address for the target"))
                 .arg(arg!(<ETHERSCAN_KEY> "api key for etherscan"))
                 .arg(arg!(<DATA> "the data to decode"))
-                // think of a better interface here
                 .arg(
                     arg!(--kind <KIND>)
                         .value_parser(["function", "error"])
@@ -110,38 +108,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
                 .expect("Could not fetch the abi for the provided contract address");
 
-            // TODO clean this bit up
+            let name: String;
+            let args: Vec<Token>;
+
             match sub_matches
                 .get_one::<String>("kind")
                 .map(|s| s.as_str())
                 .expect("error parsing kind")
             {
                 "error" => {
-                    let (name, args) = parse_error(abi, data).expect("error parsing error data");
-                    println!("Error name: {}", name);
-                    println!("Args: {:?}", args);
+                    (name, args) = parse_error(abi, data).expect("error parsing error data");
                 }
                 "function" => {
-                    let (name, args) =
-                        parse_function(abi, data).expect("error parsing function data");
-                    println!("Error name: {}", name);
-                    println!("Args: {:?}", args);
+                    (name, args) = parse_function(abi, data).expect("error parsing function data");
                 }
                 _ => unreachable!(),
             }
 
+            println!("Error name: {}", name);
+            println!("Args: {:?}", args);
             Ok(())
         }
-        // TODO not sure I need this
-        Some((ext, sub_matches)) => {
-            let args = sub_matches
-                .get_many::<OsString>("")
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>();
-            println!("Calling out to {:?} with {:?}", ext, args);
-            Ok(())
-        }
-        _ => unreachable!(), // If all subcommands are defined above, anything else is unreachabe!()
+        _ => unreachable!(),
     }
 }
