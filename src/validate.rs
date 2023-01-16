@@ -35,22 +35,29 @@ impl std::fmt::Display for InputError {
     }
 }
 
-pub fn validate_and_format_input(
+pub fn decode_command(
     matches: &ArgMatches,
 ) -> Result<(Chain, Address, String, Vec<u8>), InputError> {
-    let chain_input = matches.get_one::<String>("CHAIN").expect("required");
-    let contract_input = matches.get_one::<String>("CONTRACT").expect("required");
+    let chain_input = matches
+        .get_one::<String>("CHAIN")
+        .ok_or(InputError::new("need chain input"))?;
+    let contract_input = matches
+        .get_one::<String>("CONTRACT")
+        .ok_or(InputError::new("need contract input"))?;
     let key_input = matches
         .get_one::<String>("ETHERSCAN_KEY")
-        .expect("required");
-    let data_input = matches.get_one::<String>("DATA").expect("required");
+        .ok_or(InputError::new("need etherscan api key"))?;
+    let data_input = matches
+        .get_one::<String>("DATA")
+        .ok_or(InputError::new("need data input"))?;
 
     Ok((
-        Chain::from_str(chain_input).expect("Provided chain name invalid"),
+        Chain::from_str(chain_input).map_err(|e| InputError::new("chain input invalid"))?,
         contract_input
             .parse()
-            .expect("Provided contract address invalid"),
+            .map_err(|e| InputError::new("contract address invalid"))?,
         key_input.to_owned(),
-        hex::decode(data_input.trim_start_matches("0x")).expect("data provided is not hex"),
+        hex::decode(data_input.trim_start_matches("0x"))
+            .map_err(|e| InputError::new("data not hex"))?,
     ))
 }
