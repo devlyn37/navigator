@@ -1,7 +1,8 @@
 use anyhow::Result;
-use clap::{arg, ArgMatches, Command, Parser};
-use ethers::{abi::Token, prelude::*, utils::hex};
-use std::str::FromStr;
+use clap::{arg, Command, Parser};
+use ethers::{abi::Token, prelude::*};
+mod decode;
+mod validate;
 /// Search for a pattern in a file and display th elines that contain it.
 #[derive(Parser)]
 struct Cli {
@@ -23,37 +24,6 @@ struct Cli {
 // goerli
 // 0xd2ade556
 // 0x98AA442ceFCAF0A7277D10889d07d04E90B37eA5
-
-fn parse_error(contract: ethers::abi::Contract, data: Vec<u8>) -> Option<(String, Vec<Token>)> {
-    let found = contract
-        .errors
-        .into_values()
-        .filter_map(|x| x.into_iter().nth(0))
-        .find(|error| {
-            let error_signature = &error.signature().to_fixed_bytes()[0..4];
-            let data_signature = &data[0..4];
-            return error_signature == data_signature;
-        })?;
-
-    let params = &data[4..];
-    let decoded = found.decode(params).ok()?;
-    Some((found.name.to_owned(), decoded))
-}
-
-fn parse_function(contract: ethers::abi::Contract, data: Vec<u8>) -> Option<(String, Vec<Token>)> {
-    let found = contract
-        .functions
-        .into_values()
-        .filter_map(|x| x.into_iter().nth(0))
-        .find(|function| {
-            let signature = &data[0..4];
-            return signature == function.short_signature();
-        })?;
-
-    let params = &data[4..];
-    let decoded = found.decode_input(params).ok()?;
-    Some((found.name.to_owned(), decoded))
-}
 
 fn cli() -> Command {
     Command::new("navigator")
@@ -78,30 +48,13 @@ fn cli() -> Command {
         )
 }
 
-fn validate_and_format_input(matches: &ArgMatches) -> (Chain, Address, String, Vec<u8>) {
-    let chain_input = matches.get_one::<String>("CHAIN").expect("required");
-    let contract_input = matches.get_one::<String>("CONTRACT").expect("required");
-    let key_input = matches
-        .get_one::<String>("ETHERSCAN_KEY")
-        .expect("required");
-    let data_input = matches.get_one::<String>("DATA").expect("required");
-
-    (
-        Chain::from_str(chain_input).expect("Provided chain name invalid"),
-        contract_input
-            .parse()
-            .expect("Provided contract address invalid"),
-        key_input.to_owned(),
-        hex::decode(data_input.trim_start_matches("0x")).expect("data provided is not hex"),
-    )
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("decode", sub_matches)) => {
-            let (chain, contract_address, key, data) = validate_and_format_input(sub_matches);
+            let (chain, contract_address, key, data) =
+                validate::validate_and_format_input(sub_matches).expect("ah");
             let client = Client::new(chain, key).unwrap();
             let abi = client
                 .contract_abi(contract_address)
@@ -117,10 +70,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("error parsing kind")
             {
                 "error" => {
-                    (name, args) = parse_error(abi, data).expect("error parsing error data");
+                    (name, args) = decode::error(abi, data).expect("error parsing error data");
                 }
                 "function" => {
-                    (name, args) = parse_function(abi, data).expect("error parsing function data");
+                    (name, args) =
+                        decode::function(abi, data).expect("error parsing function data");
                 }
                 _ => unreachable!(),
             }
