@@ -3,14 +3,6 @@ use clap::{arg, Command, Parser};
 use ethers::{abi::Token, prelude::*};
 mod decode;
 mod validate;
-/// Search for a pattern in a file and display th elines that contain it.
-#[derive(Parser)]
-struct Cli {
-    contract_address: String,
-    chain: String,
-    data: String,
-    etherscan_key: String,
-}
 
 // function test
 
