@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("decode", sub_matches)) => {
-						let (chain, address, key, data) = validate::decode_command(sub_matches)?;
+            let (chain, address, key, data) = validate::decode_command(sub_matches)?;
             let client =
                 Client::new(chain, key).with_context(|| "error connecting to etherscan")?;
             let abi = client
