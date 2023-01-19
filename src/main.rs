@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{arg, Command};
-use ethers::{abi::{Token, Contract}, prelude::{Client}};
+use ethers::{
+    abi::{Contract, Token},
+    prelude::Client,
+};
 mod decode;
 mod validate;
 
@@ -45,24 +48,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("decode", sub_matches)) => {
-            let (chain, address, key, data) = validate::decode_command(sub_matches).with_context(|| "error with input")?;
-            let client = Client::new(chain, key).with_context(|| "error connecting to etherscan")?;
-            let abi = client.contract_abi(address).await.with_context(|| "error fetching abi from etherscan")?;
+						let (chain, address, key, data) = validate::decode_command(sub_matches)?;
+            let client =
+                Client::new(chain, key).with_context(|| "error connecting to etherscan")?;
+            let abi = client
+                .contract_abi(address)
+                .await
+                .with_context(|| "error fetching abi from etherscan")?;
 
-						let data_type = sub_matches
-						.get_one::<String>("kind")
-						.map(|s| s.as_str())
-						.with_context(|| "error parsing data type")?;
-						
-						let decoding_function: fn(Contract, Vec<u8>) -> Option<(std::string::String, Vec<Token>)>;
-            match data_type
-            {
+            let data_type = sub_matches
+                .get_one::<String>("kind")
+                .map(|s| s.as_str())
+                .with_context(|| "error parsing data type")?;
+
+            let decoding_function: fn(
+                Contract,
+                Vec<u8>,
+            ) -> Option<(std::string::String, Vec<Token>)>;
+            match data_type {
                 "error" => decoding_function = decode::error,
                 "function" => decoding_function = decode::function,
                 _ => unreachable!(),
             }
 
-						let (name, args) = decoding_function(abi, data).with_context(|| format!("error decoding data"))?;
+            let (name, args) =
+                decoding_function(abi, data).with_context(|| format!("error decoding data"))?;
             println!("{} name: {}, arguments: {:?}", data_type, name, args);
             Ok(())
         }

@@ -1,6 +1,9 @@
+use anyhow::Context;
 use clap::ArgMatches;
 use ethers::{abi::Address, types::Chain};
 use std::{error::Error, str::FromStr};
+
+// TODO this seems like a lot XD
 
 #[derive(Debug)]
 pub struct InputError {
@@ -37,27 +40,29 @@ impl std::fmt::Display for InputError {
 
 pub fn decode_command(
     matches: &ArgMatches,
-) -> Result<(Chain, Address, String, Vec<u8>), InputError> {
+) -> Result<(Chain, Address, String, Vec<u8>), Box<dyn std::error::Error>> {
     let chain_input = matches
         .get_one::<String>("CHAIN")
         .ok_or(InputError::new("need chain input"))?;
+    let chain = Chain::from_str(chain_input)
+        .with_context(|| format!("error parsing chain input: {}", chain_input))?;
+
     let contract_input = matches
         .get_one::<String>("CONTRACT")
         .ok_or(InputError::new("need contract input"))?;
-    let key_input = matches
+    let contract_address = contract_input
+        .parse()
+        .with_context(|| format!("error parsing contract input: {:?}", contract_input))?;
+
+    let key = matches
         .get_one::<String>("ETHERSCAN_KEY")
-        .ok_or(InputError::new("need etherscan api key"))?;
+        .with_context(|| "etherscan key required")?;
+
     let data_input = matches
         .get_one::<String>("DATA")
         .ok_or(InputError::new("need data input"))?;
+    let decoded_data = hex::decode(data_input.trim_start_matches("0x"))
+        .with_context(|| format!("error encoding hex string: {}", data_input))?;
 
-    Ok((
-        Chain::from_str(chain_input).map_err(|e| InputError::new("chain input invalid"))?,
-        contract_input
-            .parse()
-            .map_err(|e| InputError::new("contract address invalid"))?,
-        key_input.to_owned(),
-        hex::decode(data_input.trim_start_matches("0x"))
-            .map_err(|e| InputError::new("data not hex"))?,
-    ))
+    Ok((chain, contract_address, key.to_owned(), decoded_data))
 }
