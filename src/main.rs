@@ -21,6 +21,18 @@ mod validate;
 // 0x98AA442ceFCAF0A7277D10889d07d04E90B37eA5
 
 fn cli() -> Command {
+    let decode_args = [
+        arg!(<CHAIN> "The remote to target"),
+        arg!(<CONTRACT> "contract address for the target"),
+        arg!(<ETHERSCAN_KEY> "api key for etherscan"),
+        arg!(<DATA> "the data to decode"),
+        arg!(--kind <KIND>)
+            .value_parser(["function", "error"])
+            .num_args(1)
+            .required(true)
+            .require_equals(true),
+    ];
+
     Command::new("navigator")
         .about("Some tools")
         .subcommand_required(true)
@@ -29,17 +41,7 @@ fn cli() -> Command {
             Command::new("decode")
                 .about("decodes hex ethereum call data")
                 .arg_required_else_help(true)
-                .arg(arg!(<CHAIN> "The remote to target"))
-                .arg(arg!(<CONTRACT> "contract address for the target"))
-                .arg(arg!(<ETHERSCAN_KEY> "api key for etherscan"))
-                .arg(arg!(<DATA> "the data to decode"))
-                .arg(
-                    arg!(--kind <KIND>)
-                        .value_parser(["function", "error"])
-                        .num_args(1)
-                        .required(true)
-                        .require_equals(true),
-                ),
+                .args(decode_args),
         )
 }
 
@@ -48,7 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("decode", sub_matches)) => {
-            let (chain, address, key, data) = validate::decode_command(sub_matches)?;
+            let (chain, address, key, data, data_type) = validate::decode_command(sub_matches)?;
+
             let client =
                 Client::new(chain, key).with_context(|| "error connecting to etherscan")?;
             let abi = client
@@ -56,16 +59,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
                 .with_context(|| "error fetching abi from etherscan")?;
 
-            let data_type = sub_matches
-                .get_one::<String>("kind")
-                .map(|s| s.as_str())
-                .with_context(|| "error parsing data type")?;
-
             let decoding_function: fn(
                 Contract,
                 Vec<u8>,
             ) -> Option<(std::string::String, Vec<Token>)>;
-            match data_type {
+            match data_type.as_str() {
                 "error" => decoding_function = decode::error,
                 "function" => decoding_function = decode::function,
                 _ => unreachable!(),

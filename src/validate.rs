@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 pub fn decode_command(
     matches: &ArgMatches,
-) -> Result<(Chain, Address, String, Vec<u8>), Box<dyn std::error::Error>> {
+) -> Result<(Chain, Address, String, Vec<u8>, String), Box<dyn std::error::Error>> {
     let chain_input = matches
         .get_one::<String>("CHAIN")
         .ok_or(anyhow!("need chain input"))?;
@@ -29,5 +29,16 @@ pub fn decode_command(
     let decoded_data = hex::decode(data_input.trim_start_matches("0x"))
         .with_context(|| format!("error encoding hex string: {}", data_input))?;
 
-    Ok((chain, contract_address, key.to_owned(), decoded_data))
+    let data_type = matches
+        .get_one::<String>("kind")
+        .map(|s| s.to_owned())
+        .ok_or(anyhow!("data type input required"))?;
+
+    Ok((
+        chain,
+        contract_address,
+        key.to_owned(),
+        decoded_data,
+        data_type,
+    ))
 }
