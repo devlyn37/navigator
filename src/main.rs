@@ -7,25 +7,12 @@ use ethers::{
 mod decode;
 mod validate;
 
-// function test
-
-// contract address:
-// 0x1d9317911cf1003b42a965574c29f18a87a2858c
-// data:
-// 0x0209c6b7000000000000000000000000292f9d08efcf1a3a988959190d44f48a53577f100000000000000000000000000000000000000000000000000000000000000001
-
-// error test
-
-// goerli
-// 0xd2ade556
-// 0x98AA442ceFCAF0A7277D10889d07d04E90B37eA5
-
 fn cli() -> Command {
     let decode_args = [
-        arg!(<CHAIN> "The remote to target"),
-        arg!(<CONTRACT> "contract address for the target"),
-        arg!(<ETHERSCAN_KEY> "api key for etherscan"),
-        arg!(<DATA> "the data to decode"),
+        arg!(<CHAIN> "the chain the contract is deployed to"),
+        arg!(<CONTRACT> "the contract the data is related to"),
+        arg!(<ETHERSCAN_KEY> "an api key for etherscan"),
+        arg!(<DATA> "the hex encoded data"),
         arg!(--kind <KIND>)
             .value_parser(["function", "error"])
             .num_args(1)
@@ -50,7 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("decode", sub_matches)) => {
-            let (chain, address, key, data, data_type) = validate::decode_command(sub_matches)?;
+            let (chain, address, key, data, data_type) = validate::decode_command(sub_matches)
+                .with_context(|| "there's a problem with the input")?;
 
             let client =
                 Client::new(chain, key).with_context(|| "error connecting to etherscan")?;

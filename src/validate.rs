@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context, Error};
 use clap::ArgMatches;
 use ethers::{abi::Address, types::Chain};
 use std::str::FromStr;
 
 pub fn decode_command(
     matches: &ArgMatches,
-) -> Result<(Chain, Address, String, Vec<u8>, String), Box<dyn std::error::Error>> {
+) -> Result<(Chain, Address, String, Vec<u8>, String), Error> {
     let chain_input = matches
         .get_one::<String>("CHAIN")
         .ok_or(anyhow!("need chain input"))?;
