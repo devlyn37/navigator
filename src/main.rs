@@ -32,7 +32,7 @@ fn cli() -> Command {
         )
 }
 
-#[tokio::main]
+#[tokio::main] // https://i.redd.it/x9dh4zxf83yz.jpg
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli().get_matches();
     match matches.subcommand() {
