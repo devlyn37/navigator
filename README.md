@@ -2,7 +2,7 @@
 
 A CLI for things I find myself doing often in EVM land.
 
-Implemented in Rust for fun.
+This is a WIP and implemented in Rust for fun
 
 ## Decode Command
 
